@@ -2,9 +2,9 @@ import os
 import random
 import time
 import torch
-import NN_model
 import argparse
 import kifu_dataset
+import load_model
 
 if __name__ == "__main__":
     # 引数の設定
@@ -15,14 +15,21 @@ if __name__ == "__main__":
     parser.add_argument('--iter', type=float, default=1e3, help='反復回数')
     parser.add_argument('--device', type=str, default='cpu', choices=['cuda', 'cpu'], help='使用デバイス')
     parser.add_argument('--seed', type=int, default=100, help='シード値')
+    parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
+    parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
 
     args = parser.parse_args()
 
     # 定数の設定
-    iter       = int(args.iter)
-    seed       = args.seed
-    device     = args.device
-    pramPath   = args.pramPath
+    iter         = int(args.iter)
+    seed         = args.seed
+    device       = args.device
+    pramPath     = args.pramPath
+    model_name   = args.model
+    model_module = args.model_module
+
+    # モジュール、クラスの存在確認
+    ModelClass = load_model.load_model_class(model_module, model_name)
 
     # シード値の設定
     random.seed(seed)
@@ -37,7 +44,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     print(f"device : {device}")
 
-    model = NN_model.ValueNet().to(device)
+    model = ModelClass().to(device)
     ckpt = torch.load(pramPath, map_location=device)
 
     model.load_state_dict(ckpt["model"])

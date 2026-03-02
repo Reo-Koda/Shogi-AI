@@ -9,11 +9,11 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Subset, random_split
 from torch.utils.data.sampler import SubsetRandomSampler
 import kifu_dataset
-import NN_model
 from save_pram import save_pram
 import argparse
 from collections import deque
 from tqdm import tqdm
+import load_model
 
 def sample_indices(n, k, generator):
     # nが巨大でもメモリを爆発させない（重複あり）
@@ -37,23 +37,30 @@ if __name__ == "__main__":
     parser.add_argument('--trainRatio', type=float, default=0.9, help='学習データの割合')
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'], help='使用デバイス')
     parser.add_argument('--seed', type=int, default=100, help='シード値')
+    parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
+    parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
 
     args = parser.parse_args()
 
     # 定数の設定
-    lr         = args.lr
-    minlr      = args.minlr
-    iter       = int(args.iter)
-    seed       = args.seed
-    device     = args.device
-    file_num   = args.file_num
-    pramPath   = args.pramPath
-    savePath   = args.savePath
-    valLimit   = int(args.valLimit)
-    trainLimit = int(args.trainLimit)
-    batch_size = args.batch_size
-    isContinue = args.isContinue
-    trainRatio = args.trainRatio
+    lr           = args.lr
+    minlr        = args.minlr
+    iter         = int(args.iter)
+    seed         = args.seed
+    device       = args.device
+    file_num     = args.file_num
+    pramPath     = args.pramPath
+    savePath     = args.savePath
+    valLimit     = int(args.valLimit)
+    trainLimit   = int(args.trainLimit)
+    batch_size   = args.batch_size
+    isContinue   = args.isContinue
+    trainRatio   = args.trainRatio
+    model_name   = args.model
+    model_module = args.model_module
+
+    # モジュール、クラスの存在確認
+    ModelClass = load_model.load_model_class(model_module, model_name)
 
     # シード値の設定
     random.seed(seed)
@@ -94,7 +101,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     print(f"device : {device}")
 
-    model = NN_model.ValueNet().to(device)                                       # モデルの生成
+    model = ModelClass().to(device)                                              # モデルの生成
     criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
     # optimizer = optim.Adam(model.parameters(), lr=lr)                            # パラメータの修正
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)

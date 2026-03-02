@@ -8,11 +8,11 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Subset, random_split
 import kifu_dataset
-import NN_model
 from save_pram import save_pram
 import argparse
 from collections import deque
 from tqdm import tqdm
+import load_model
 
 if __name__ == "__main__":
     # 引数の設定
@@ -31,22 +31,31 @@ if __name__ == "__main__":
     parser.add_argument('--trainRatio', type=float, default=0.9, help='学習データの割合')
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'], help='使用デバイス')
     parser.add_argument('--seed', type=int, default=100, help='シード値')
+    parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
+    parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
+    parser.add_argument('--patience', type=int, default=3, help='終了条件')
 
     args = parser.parse_args()
 
     # 定数の設定
-    lr         = args.lr
-    iter       = int(args.iter)
-    seed       = args.seed
-    device     = args.device
-    file_num   = args.file_num
-    pramPath   = args.pramPath
-    savePath   = args.savePath
-    valLimit   = int(args.valLimit)
-    trainLimit = int(args.trainLimit)
-    batch_size = args.batch_size
-    isContinue = args.isContinue
-    trainRatio = args.trainRatio
+    lr           = args.lr
+    iter         = int(args.iter)
+    seed         = args.seed
+    device       = args.device
+    file_num     = args.file_num
+    pramPath     = args.pramPath
+    savePath     = args.savePath
+    patience     = args.patience
+    valLimit     = int(args.valLimit)
+    trainLimit   = int(args.trainLimit)
+    batch_size   = args.batch_size
+    isContinue   = args.isContinue
+    trainRatio   = args.trainRatio
+    model_name   = args.model
+    model_module = args.model_module
+
+    # モジュール、クラスの存在確認
+    ModelClass = load_model.load_model_class(model_module, model_name)
 
     # シード値の設定
     random.seed(seed)
@@ -99,7 +108,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     print(f"device : {device}")
 
-    model = NN_model.ValueNet().to(device)                                       # モデルの生成
+    model = ModelClass().to(device)                                              # モデルの生成
     criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
     # optimizer = optim.Adam(model.parameters(), lr=lr)                            # パラメータの修正
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
@@ -169,10 +178,10 @@ if __name__ == "__main__":
         expected_end_time = datetime.now() + timedelta(seconds=remaining_seconds) # 予想終了時刻を計算
         print(f"epoch {epoch + 1:>5}, train_loss {train_loss:.6f}, val_loss {val_loss:.6f}, lr {current_lr:.2e}, end {expected_end_time.strftime("%Y/%m/%d-%H:%M:%S")}")
 
-        # 3 epoch 連続で損失率が改善しなかったら終了する
+        # 指定数の epoch 連続で損失率が改善しなかったら終了する
         if best_loss <= val_loss:
             stop_cnt += 1
-            if stop_cnt >= 3: break
+            if stop_cnt >= patience: break
         else:
             stop_cnt = 0
             best_loss = val_loss # 最高損失率を更新
