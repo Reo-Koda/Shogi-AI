@@ -34,6 +34,10 @@ python -m PyInstaller sample.py --clean --noconfirm --onedir ^
   --hidden-import=numpy.core._multiarray_umath ^
   --hidden-import=cshogi._cshogi
 ```
+## ライブラリのインストール
+```bash
+pip install -r requirements.txt
+```
 
 ## オンライン対戦の仕方
 
@@ -133,3 +137,4 @@ python -m PyInstaller sample.py --clean --noconfirm --onedir ^
 
 - 学習率を固定して規定回数損失率の改善が見られなかったら学習を終了する
   > 手早く訓練できる
+
