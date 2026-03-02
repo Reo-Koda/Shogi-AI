@@ -1,0 +1,7 @@
+__pycache__
+.usi_test
+build
+dist
+kifu_data
+pram
+*.spec
