@@ -4,15 +4,15 @@ import torch
 from torch.utils.data import Dataset
 from bisect import bisect_right
 from tqdm import tqdm
-import NN_model
 
 _WORKER_BOARD = None
 _WORKER_MEMMAPS = None
 
 # データセット用のクラス
 class MultiPSVDataset(Dataset):
-    def __init__(self, bin_paths):
+    def __init__(self, bin_paths, model):
         self.bin_paths = list(bin_paths)
+        self.model = model
 
         # 長さ計算だけは安全にやる（memmapは一時的に作ってすぐ捨てる）
         lens = []
@@ -57,7 +57,7 @@ class MultiPSVDataset(Dataset):
         game_result = float(kifu_data["game_result"])
 
         # スコアの再定義
-        target = NN_model.calc_target(score, game_result, alpha=1.0)
+        target = self.model.norm_score(score, game_result)
 
         _WORKER_BOARD.set_psfen(sfen)
 

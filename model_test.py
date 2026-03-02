@@ -17,12 +17,14 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=100, help='シード値')
     parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
     parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
+    parser.add_argument('--alpha', type=float, default=0.7, help='学習データの評価値再計算において、元データの評価値を重視する割合')
 
     args = parser.parse_args()
 
     # 定数の設定
     iter         = int(args.iter)
     seed         = args.seed
+    alpha        = args.alpha
     device       = args.device
     pramPath     = args.pramPath
     model_name   = args.model
@@ -38,13 +40,13 @@ if __name__ == "__main__":
     files = os.listdir("./kifu_data/bin")
     random.shuffle(files)
     all_bin_paths = [f"./kifu_data/bin/{fn}" for fn in files[:3]]
-    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths)
+    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths, ModelClass)
     print("dataset end")
 
     device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
     print(f"device : {device}")
 
-    model = ModelClass().to(device)
+    model = ModelClass(alpha=alpha).to(device)
     ckpt = torch.load(pramPath, map_location=device)
 
     model.load_state_dict(ckpt["model"])
