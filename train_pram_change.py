@@ -7,12 +7,17 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Subset, random_split
+from torch.utils.data.sampler import SubsetRandomSampler
 import kifu_dataset
 import NN_model
 from save_pram import save_pram
 import argparse
 from collections import deque
 from tqdm import tqdm
+
+def sample_indices(n, k, generator):
+    # nが巨大でもメモリを爆発させない（重複あり）
+    return torch.randint(0, n, (k,), generator=generator).tolist()
 
 if __name__ == "__main__":
     # 引数の設定
@@ -67,24 +72,12 @@ if __name__ == "__main__":
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     # データを圧縮
-    train_indices = torch.randperm(train_size, generator=g)[:min(trainLimit, train_size)]
+    # train_indices = torch.randperm(train_size, generator=g)[:min(trainLimit, train_size)]
     val_indices   = torch.randperm(val_size, generator=g)[:min(valLimit, val_size)]
     # データセットを圧縮
-    train_dataset_small = Subset(train_dataset, train_indices)
+    # train_dataset_small = Subset(train_dataset, train_indices)
     val_dataset_small   = Subset(val_dataset, val_indices)
     print("split end")
-
-    train_loader = DataLoader(
-        train_dataset_small,     # 局面情報とスコアがまとめられているオブジェクト
-        batch_size=batch_size,   # 一回のバッチ学習で使用する局面の数
-        shuffle=True,            # 学習する局面の順番をシャッフル
-        num_workers=2,           # データを読み込む処理の並列数
-        pin_memory=True,         # GPUへの転送の高速化
-        persistent_workers=True, # データ読み込みの高速化
-        prefetch_factor=2,       # データを先読みするバッチ数
-        generator=g              # シード値の設定
-    )
-    print("train_loader end")
 
     val_loader = DataLoader(
         val_dataset_small,       # 局面情報とスコアがまとめられているオブジェクト
@@ -120,7 +113,20 @@ if __name__ == "__main__":
     time_hist = deque(maxlen=10)      # 終了予想時間の計算に使用
     best_loss  = 1.0                  # 最高損失率の初期化
     epoch_start = time.perf_counter() # 時間計測開始
-    for epoch in range(start_epoch, end_epoch):        
+    for epoch in range(start_epoch, end_epoch):
+        g.manual_seed(seed+epoch)
+        train_indices = sample_indices(train_size, min(trainLimit, train_size), g)
+        train_loader = DataLoader(
+            train_dataset,            # 局面情報とスコアがまとめられているオブジェクト
+            batch_size=batch_size,    # 一回のバッチ学習で使用する局面の数
+            sampler=SubsetRandomSampler(train_indices),
+            num_workers=2,            # データを読み込む処理の並列数
+            pin_memory=True,          # GPUへの転送の高速化
+            persistent_workers=False, # データ読み込みの高速化
+            prefetch_factor=2,        # データを先読みするバッチ数
+            generator=g               # シード値の設定
+        )
+        
         # 訓練
         model.train()
         running = 0.0
