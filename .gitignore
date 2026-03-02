@@ -5,3 +5,5 @@ dist
 kifu_data
 pram
 *.spec
+*.json
+.env

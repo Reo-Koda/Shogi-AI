@@ -14,6 +14,7 @@ import argparse
 from collections import deque
 from tqdm import tqdm
 import load_model
+from log_mail import notify_result
 
 def sample_indices(n, k, generator):
     # nが巨大でもメモリを爆発させない（重複あり）
@@ -39,6 +40,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=100, help='シード値')
     parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
     parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
+    parser.add_argument('--mail', action='store_true', help='学習の終了を通知する')
 
     args = parser.parse_args()
 
@@ -47,6 +49,7 @@ if __name__ == "__main__":
     minlr        = args.minlr
     iter         = int(args.iter)
     seed         = args.seed
+    mail         = args.mail
     device       = args.device
     file_num     = args.file_num
     pramPath     = args.pramPath
@@ -189,4 +192,6 @@ if __name__ == "__main__":
             save_pram(model, optimizer, scheduler, epoch, val_loss, savePath) # パラメータを保存
         
         if minlr > current_lr: break # 学習率が下限を超えたら打ち止め
-
+    
+    if mail:
+        notify_result(epoch, train_loss, val_loss)

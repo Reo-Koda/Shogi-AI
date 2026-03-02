@@ -13,6 +13,7 @@ import argparse
 from collections import deque
 from tqdm import tqdm
 import load_model
+from log_mail import notify_result
 
 if __name__ == "__main__":
     # 引数の設定
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
     parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
     parser.add_argument('--patience', type=int, default=3, help='終了条件')
+    parser.add_argument('--mail', action='store_true', help='学習の終了を通知する')
 
     args = parser.parse_args()
 
@@ -41,6 +43,7 @@ if __name__ == "__main__":
     lr           = args.lr
     iter         = int(args.iter)
     seed         = args.seed
+    mail         = args.mail
     device       = args.device
     file_num     = args.file_num
     pramPath     = args.pramPath
@@ -188,3 +191,6 @@ if __name__ == "__main__":
 
             # パラメータを保存
             save_pram(model, optimizer, scheduler, epoch, val_loss, savePath)
+
+    if mail:
+        notify_result(epoch, train_loss, val_loss)
