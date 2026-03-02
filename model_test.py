@@ -59,6 +59,8 @@ if __name__ == "__main__":
         idx = random.randint(0, len(dataset))
         # 盤面と基準スコアを取得
         x, stnd_y = dataset[idx]
+        # 入力値にバッチ次元を追加して4次元にする
+        x = x.unsqueeze(0)
         # 推論スコアを取得
         with torch.no_grad():
             eval_y = model(x).item()
