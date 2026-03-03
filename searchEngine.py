@@ -46,7 +46,7 @@ class SearchEngine(usi_server.USIEngine):
         self.nodes = 0
         start = time.perf_counter()
         for current_depth in range(1, self.max_depth):
-            current_best_move = None
+            best_move = None
             best_value = -self.inf if self.board.turn == cshogi.BLACK else self.inf
         
             for move in moves:
@@ -57,13 +57,12 @@ class SearchEngine(usi_server.USIEngine):
                 if self.board.turn == cshogi.BLACK:
                     if value >= best_value:
                         best_value = value
-                        current_best_move = move
+                        best_move = move
                 else:
                     if value <= best_value:
                         best_value = value
-                        current_best_move = move
+                        best_move = move
             
-            best_move = current_best_move
             self.info(current_depth, int((time.perf_counter() - start) * 1000), self.recover_score(value), [cshogi.move_to_usi(best_move)])
                     
         return cshogi.move_to_usi(best_move)

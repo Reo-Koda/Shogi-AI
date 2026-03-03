@@ -13,7 +13,7 @@ import argparse
 from collections import deque
 from tqdm import tqdm
 import load_model
-from log_mail import notify_result
+from gmail.log_mail import notify_result
 
 if __name__ == "__main__":
     # 引数の設定
@@ -36,7 +36,6 @@ if __name__ == "__main__":
     parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
     parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
     parser.add_argument('--mail', action='store_true', help='学習の終了を通知する')
-    parser.add_argument('--alpha', type=float, default=0.7, help='学習データの評価値再計算において、元データの評価値を重視する割合')
 
     args = parser.parse_args()
 
@@ -46,7 +45,6 @@ if __name__ == "__main__":
     iter         = int(args.iter)
     seed         = args.seed
     mail         = args.mail
-    alpha        = args.alpha
     device       = args.device
     file_num     = args.file_num
     pramPath     = args.pramPath
@@ -67,30 +65,11 @@ if __name__ == "__main__":
     g = torch.Generator()
     g.manual_seed(seed)
 
-    # デバイスの指定
-    device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
-    print(f"device : {device}")
-
-    # モデルの設定
-    model = ModelClass(alpha=alpha).to(device)                                   # モデルの生成
-    criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
-    # optimizer = optim.Adam(model.parameters(), lr=lr)                            # パラメータの修正
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3) # 学習率の動的最適化
-    start_epoch = 0                                                              # epoch数の初期化
-    if isContinue:
-        ckpt = torch.load(pramPath, map_location=device) # パラメータの読み込み
-        model.load_state_dict(ckpt["model"])             # パラメータを設定
-        optimizer.load_state_dict(ckpt["optimizer"])     # 最適化パラメータの設定
-        scheduler.load_state_dict(ckpt["scheduler"])     # 学習率のスケジュールを読み込み
-
-        start_epoch = ckpt["epoch"] + 1                  # epoch数の読み込み
-
     # 学習データの作成
     files = os.listdir("./kifu_data/bin")
     random.shuffle(files)
     all_bin_paths = [f"./kifu_data/bin/{fn}" for fn in files[:min(file_num, len(files))]]
-    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths, model)
+    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths)
     print("dataset end")
 
     # 学習用と検証用にデータを分割
@@ -129,12 +108,29 @@ if __name__ == "__main__":
     )
     print("val_loader end")
 
+    device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
+    print(f"device : {device}")
+
+    model = ModelClass().to(device)                                              # モデルの生成
+    criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
+    # optimizer = optim.Adam(model.parameters(), lr=lr)                            # パラメータの修正
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3) # 学習率の動的最適化
+    start_epoch = 0                                                              # epoch数の初期化
+    if isContinue:
+        ckpt = torch.load(pramPath, map_location=device) # パラメータの読み込み
+        model.load_state_dict(ckpt["model"])             # パラメータを設定
+        optimizer.load_state_dict(ckpt["optimizer"])     # 最適化パラメータの設定
+        scheduler.load_state_dict(ckpt["scheduler"])     # 学習率のスケジュールを読み込み
+
+        start_epoch = ckpt["epoch"] + 1                  # epoch数の読み込み
+
     # 学習
     end_epoch = start_epoch + iter    # 終了時の epoch 数
     time_hist = deque(maxlen=10)      # 終了予想時間の計算に使用
     best_loss  = 1.0                  # 最高損失率の初期化
     epoch_start = time.perf_counter() # 時間計測開始
-    for epoch in range(start_epoch, end_epoch):
+    for epoch in range(start_epoch, end_epoch):        
         # 訓練
         model.train()
         running = 0.0
