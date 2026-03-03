@@ -2,16 +2,11 @@ import os.path
 import base64
 from email.message import EmailMessage
 
-from dotenv import load_dotenv
-
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
-load_dotenv('.env') # 実行ファイルからの相対パス
-MAILACCOUNT = os.getenv('MAILACCOUNT')
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
@@ -29,17 +24,19 @@ def create_message(sender, to, subject, body):
 
   return {"raw": encoded_message}
 
-def send_message(subject, message, isMain=False, creds=None):
+def send_message(to: str, subject: str, message: str, isMain=False, creds=None):
   if not isMain:
-    if os.path.exists("token.json"):
-      creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    TOKEN_PATH = os.path.join(BASE_DIR, "token.json")
+    if os.path.exists(TOKEN_PATH):
+      creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
     else:
       raise RuntimeError("token.json not found (run auth setup once)")
     
     if not creds.valid:
       if creds.expired and creds.refresh_token:
         creds.refresh(Request())
-        with open("token.json", "w") as token:
+        with open(TOKEN_PATH, "w") as token:
           token.write(creds.to_json())
       else:
         raise RuntimeError("Credentials invalid and cannot refresh (re-run auth setup)")
@@ -50,7 +47,7 @@ def send_message(subject, message, isMain=False, creds=None):
 
     message = create_message(
       sender="me",
-      to=MAILACCOUNT,
+      to=to,
       subject=subject,
       body=message
     )

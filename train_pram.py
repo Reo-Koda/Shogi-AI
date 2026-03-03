@@ -13,7 +13,8 @@ import argparse
 from collections import deque
 from tqdm import tqdm
 import load_model
-from gmail.log_mail import notify_result
+from log_mail import notify_result
+from dotenv import load_dotenv
 
 if __name__ == "__main__":
     # 引数の設定
@@ -188,4 +189,6 @@ if __name__ == "__main__":
         if minlr > current_lr: break # 学習率が下限を超えたら打ち止め
 
     if mail:
-        notify_result(epoch, train_loss, val_loss)
+        load_dotenv('./pram/.env')
+        MAIL_ACCOUNT = os.getenv('MAILACCOUNT')
+        notify_result(MAIL_ACCOUNT, epoch, train_loss, val_loss)
