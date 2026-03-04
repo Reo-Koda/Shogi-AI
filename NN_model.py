@@ -47,6 +47,41 @@ class ValueNet_useRes(nn.Module):
         v = self.head(h).squeeze(-1)     # (B,)
         return torch.tanh(v)
 
+class ValueNet_useResMulti(nn.Module):
+    def __init__(self, stage_blocks=(6, 6), stage_channels=(128, 256)):
+        super().__init__()
+        assert len(stage_blocks) == len(stage_channels), "stage_blocks と stage_channels の要素数の不一致"
+
+        c0 = stage_channels[0]
+        self.stem = nn.Sequential(
+            nn.Conv2d(119, c0, 3, padding=1, bias=False),
+            nn.BatchNorm2d(c0),
+            nn.ReLU(),
+        )
+
+        layers = []
+        c_prev = c0
+        for i, (nb, c) in enumerate(zip(stage_blocks, stage_channels)):
+            if i > 0:
+                layers += [
+                    nn.Conv2d(c_prev, c, kernel_size=1, bias=False),
+                    nn.BatchNorm2d(c),
+                    nn.ReLU(),
+                ]
+            layers += [ResBlock(c) for _ in range(nb)]
+            c_prev = c
+        
+        self.blocks = nn.Sequential(*layers)
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.head = nn.Linear(c_prev, 1)
+
+    def forward(self, x):
+        h = self.stem(x)
+        h = self.blocks(h)
+        h = self.pool(h).flatten(1)      # (B,C)
+        v = self.head(h).squeeze(-1)     # (B,)
+        return v
+
 class ValueNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -64,3 +99,45 @@ class ValueNet(nn.Module):
         h = self.body(x).squeeze(-1).squeeze(-1) # (B,128)
         v = self.head(h).squeeze(-1)             # (B,)
         return torch.tanh(v)
+
+class PolicyNet(nn.Module):
+    """
+    入力:  x (B,119,9,9)
+    出力:  policy_logits (B,K,9,9)  ※Kはmove-planes数（固定）
+          （必要なら合法手マスク後に softmax して確率にする）
+    """
+    def __init__(self, policy_planes: int = 137):
+        super().__init__()
+        self.body = nn.Sequential(
+            nn.Conv2d(119, 128, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, 3, padding=1),
+            nn.ReLU(),
+        )
+        # policy head: (B,128,9,9) -> (B,K,9,9)
+        self.policy_head = nn.Conv2d(128, policy_planes, kernel_size=1, bias=True)
+
+    def forward(self, x, legal_mask: torch.Tensor | None = None):
+        """
+        legal_mask: (B,K,9,9) のbool/0-1テンソル（True/1が合法）
+                   与えられた場合は非合法手を大負値でマスクして返す
+        """
+        h = self.body(x)                       # (B,128,9,9)
+        logits = self.policy_head(h)           # (B,K,9,9)
+
+        if legal_mask is not None:
+            # boolでない場合も受ける
+            legal_mask = legal_mask.to(dtype=torch.bool)
+            logits = logits.masked_fill(~legal_mask, -1e9)
+
+        return logits
+
+    @staticmethod
+    def logits_to_policy(logits: torch.Tensor) -> torch.Tensor:
+        """
+        logits: (B,K,9,9)
+        return: policy probs (B,K,9,9)
+        """
+        B, K, H, W = logits.shape
+        p = F.softmax(logits.view(B, K * H * W), dim=1).view(B, K, H, W)
+        return p
