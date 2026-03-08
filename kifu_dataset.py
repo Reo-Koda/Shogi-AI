@@ -11,8 +11,9 @@ _WORKER_MEMMAPS = None
 
 # データセット用のクラス
 class MultiPSVDataset(Dataset):
-    def __init__(self, bin_paths):
+    def __init__(self, bin_paths, alpha=0.7):
         self.bin_paths = list(bin_paths)
+        self.alpha = alpha
 
         # 長さ計算だけは安全にやる（memmapは一時的に作ってすぐ捨てる）
         lens = []
@@ -57,13 +58,16 @@ class MultiPSVDataset(Dataset):
         game_result = float(kifu_data["game_result"])
 
         # スコアの再定義
-        target = NN_model.calc_target(score, game_result, alpha=1.0)
+        target = NN_model.calc_target(score, game_result, alpha=self.alpha)
 
         _WORKER_BOARD.set_psfen(sfen)
 
         FEATURES_NUM = 119
         features = np.zeros((FEATURES_NUM, 9, 9), dtype=np.float32)
-        _WORKER_BOARD.piece_planes(features)
+        if _WORKER_BOARD.turn == cshogi.BLACK:
+            _WORKER_BOARD.piece_planes(features)
+        else:
+            _WORKER_BOARD.piece_planes_rotate(features)
 
         x = torch.from_numpy(features) # shape: (119,9,9)
         y = torch.tensor(target, dtype=torch.float32)

@@ -17,12 +17,14 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=100, help='シード値')
     parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
     parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
+    parser.add_argument('--alpha', type=float, default=0.0, help='評価値を重視する度合い（0.0なら勝敗のみ、1.0なら評価値のみ）')
 
     args = parser.parse_args()
 
     # 定数の設定
     iter         = int(args.iter)
     seed         = args.seed
+    alpha        = args.alpha
     device       = args.device
     pramPath     = args.pramPath
     model_name   = args.model
@@ -37,8 +39,8 @@ if __name__ == "__main__":
     # 検証証データの作成
     files = os.listdir("./kifu_data/bin")
     random.shuffle(files)
-    all_bin_paths = [f"./kifu_data/bin/{fn}" for fn in files[:3]]
-    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths)
+    all_bin_paths = [f"./kifu_data/bin/{fn}" for fn in files[:30]]
+    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths, alpha=alpha)
     print("dataset end")
 
     device = "cuda" if torch.cuda.is_available() and device == "cuda" else "cpu"
@@ -66,14 +68,14 @@ if __name__ == "__main__":
         with torch.no_grad():
             eval_y = model(x).item()
         
-        if abs(stnd_y) > 3000 and cnt < 10:
-            print(f"idx : {idx}")
+        if abs(eval_y) < 0.4 and cnt < 10:
+            print(f"idx : {i+1}-{idx}")
             print(f"推論スコア : {eval_y}")
             print(f"基準スコア : {stnd_y}")
             cnt += 1
         # スコアの差を保存
-        delta_list.append(abs(eval_y - stnd_y))
+        delta_list.append(1 if abs(eval_y - stnd_y) < 1.0 else 0)
 
     end = time.time()
-    print(f"評価値差の平均 : {sum(delta_list) / len(delta_list)}")
+    print(f"精度 : {sum(delta_list) / len(delta_list)}")
     print(f"経過時間 : {end - start:.6f}sec")

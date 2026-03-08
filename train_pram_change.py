@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
     parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
     parser.add_argument('--mail', action='store_true', help='学習の終了を通知する')
+    parser.add_argument('--alpha', type=float, default=0.0, help='評価値を重視する度合い（0.0なら勝敗のみ、1.0なら評価値のみ）')
 
     args = parser.parse_args()
 
@@ -51,6 +52,7 @@ if __name__ == "__main__":
     iter         = int(args.iter)
     seed         = args.seed
     mail         = args.mail
+    alpha        = args.alpha
     device       = args.device
     file_num     = args.file_num
     pramPath     = args.pramPath
@@ -75,7 +77,7 @@ if __name__ == "__main__":
     files = os.listdir("./kifu_data/bin")
     random.shuffle(files)
     all_bin_paths = [f"./kifu_data/bin/{fn}" for fn in files[:min(file_num, len(files))]]
-    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths)
+    dataset = kifu_dataset.MultiPSVDataset(all_bin_paths, alpha=alpha)
     print("dataset end")
 
     # 学習用と検証用にデータを分割
@@ -106,11 +108,10 @@ if __name__ == "__main__":
     print(f"device : {device}")
 
     model = ModelClass().to(device)                                              # モデルの生成
-    # criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
-    criterion = nn.HuberLoss(delta=200)
-    # optimizer = optim.Adam(model.parameters(), lr=lr)                            # パラメータの修正
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3) # 学習率の動的最適化
+    criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
+    # criterion = nn.HuberLoss(delta=200)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)        # パラメータの修正
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5) # 学習率の動的最適化
     start_epoch = 0                                                              # epoch数の初期化
     if isContinue:
         ckpt = torch.load(pramPath, map_location=device) # パラメータの読み込み

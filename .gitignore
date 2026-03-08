@@ -3,7 +3,7 @@ __pycache__
 build
 dist
 kifu_data
-pram
 *.spec
 *.json
 .env
+pram/*.pt
