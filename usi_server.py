@@ -18,8 +18,8 @@ class USIEngine:
     def send(self, msg):
         print(msg, flush=True)
     
-    def info(self, depth, time, cp, pv):
-        self.send(f"info depth {depth} time {time} nodes {self.nodes} score cp {cp} pv {' '.join(pv)}")
+    def info(self, depth=0, time=0, nps=0, cp=0, pv=None, hashfull=0, currmove=None):
+        self.send(f"info depth {depth} time {time} nodes {self.nodes} nps {nps} score cp {cp} pv {' '.join(pv)} hashfull {hashfull} currmove {currmove}")
     
     def loop(self):
         while True:

@@ -34,7 +34,9 @@ python -m PyInstaller sample.py --clean --noconfirm --onedir ^
   --hidden-import=numpy.core._multiarray_umath ^
   --hidden-import=cshogi._cshogi
 ```
+
 ## ライブラリのインストール
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -100,6 +102,48 @@ pip install -r requirements.txt
 - 指し手
   > 指し手を学習する
 
+# モデルの設計に関して
+
+[将棋に関するDeepLearningの記事](https://tadaoyamaoka.hatenablog.com/entry/2017/04/06/003219)をもとにメモ
+
+13層の畳み込みニューラルネットワーク
+チャネル数 : 256
+指し手の確率を出力
+
+```python
+k = 256
+# input_num, output_num は cshogiの設計に合わせる必要がありそう
+input_num = 105 # おそらく
+output_num = len(shogi.PIECE_TYPES) # 14種類
+# 1 層
+nn.Conv2d(input_num, k, kernel_size=3, padding=1),
+nn.ReLU(),
+# 2 ~ 12 層
+nn.Conv2d(k, k, kernel_size=3, padding=1),
+nn.ReLU(),
+# 13 層
+nn.Conv2d(k, output_num, kernel_size=1, padding=1),
+Bias(shape=(9*9*output_num)) # ラベル数は、駒の種類が14なので、14×9×9＝1134となる。
+```
+
+手番を入力特徴に加えても効果がない
+
+## Batch Normalization
+
+Batch Normalizationを適用することのメリット
+
+- 学習を速く進行させることができる（学習係数を大きくすることができる）
+- 初期値にそれほど依存しない
+- 過学習を抑制する（Dropoutの必要性を減らす）
+
+Batch Normalizationを入れる程、学習時間が延びる傾向がある。学習の効率を上げるには必要以上に入れない方が良い。
+
+## 学習のさせ方について
+
+後手番のときの精度をあげるために、180度回転して学習する必要がありそう
+
+最適化手法 : AdaGrad
+
 # ファイルの説明
 
 ### kifu_dataset.py
@@ -137,5 +181,3 @@ pip install -r requirements.txt
 
 - 学習率を固定して規定回数損失率の改善が見られなかったら学習を終了する
   > 手早く訓練できる
-
-

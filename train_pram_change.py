@@ -36,7 +36,7 @@ if __name__ == "__main__":
     parser.add_argument('--valLimit', type=float, default=1e5, help='検証する局面数の上限')
     parser.add_argument('--batch_size', type=int, default=1024, help='一回のバッチ学習で学習する局面数')
     parser.add_argument('--file_num', type=int, default=25, help='使用するファイル数')
-    parser.add_argument('--trainRatio', type=float, default=0.9, help='学習データの割合')
+    parser.add_argument('--valRatio', type=float, default=0.1, help='検証データの割合')
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'], help='使用デバイス')
     parser.add_argument('--seed', type=int, default=100, help='シード値')
     parser.add_argument('--model_module', type=str, default='NN_model', help='使用するモジュール名')
@@ -55,11 +55,11 @@ if __name__ == "__main__":
     file_num     = args.file_num
     pramPath     = args.pramPath
     savePath     = args.savePath
+    valRatio     = args.valRatio
     valLimit     = int(args.valLimit)
     trainLimit   = int(args.trainLimit)
     batch_size   = args.batch_size
     isContinue   = args.isContinue
-    trainRatio   = args.trainRatio
     model_name   = args.model
     model_module = args.model_module
 
@@ -79,19 +79,19 @@ if __name__ == "__main__":
     print("dataset end")
 
     # 学習用と検証用にデータを分割
-    train_size = int(trainRatio * len(dataset))
-    val_size = len(dataset) - train_size
+    val_size = min(int(valRatio * len(dataset)), valLimit)
+    train_size = len(dataset) - val_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     # データを圧縮
     # train_indices = torch.randperm(train_size, generator=g)[:min(trainLimit, train_size)]
-    val_indices   = torch.randperm(val_size, generator=g)[:min(valLimit, val_size)]
+    # val_indices = torch.randperm(val_size, generator=g)
     # データセットを圧縮
     # train_dataset_small = Subset(train_dataset, train_indices)
-    val_dataset_small   = Subset(val_dataset, val_indices)
+    # val_dataset_small = Subset(val_dataset, val_indices)
     print("split end")
 
     val_loader = DataLoader(
-        val_dataset_small,       # 局面情報とスコアがまとめられているオブジェクト
+        val_dataset,             # 局面情報とスコアがまとめられているオブジェクト
         batch_size=batch_size,   # 一回のバッチ学習で使用する局面の数
         shuffle=False,           # 検証する局面の順番はシャッフルする必要がない
         num_workers=2,           # データを読み込む処理の並列数
@@ -106,7 +106,8 @@ if __name__ == "__main__":
     print(f"device : {device}")
 
     model = ModelClass().to(device)                                              # モデルの生成
-    criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
+    # criterion = nn.SmoothL1Loss(beta=0.5)                                        # モデルの評価値と学習データの評価値の差を計算
+    criterion = nn.HuberLoss(delta=200)
     # optimizer = optim.Adam(model.parameters(), lr=lr)                            # パラメータの修正
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3) # 学習率の動的最適化
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     # 学習
     end_epoch = start_epoch + iter    # 終了時の epoch 数
     time_hist = deque(maxlen=10)      # 終了予想時間の計算に使用
-    best_loss  = 1.0                  # 最高損失率の初期化
+    best_loss = float('inf')          # 最高損失率の初期化
     epoch_start = time.perf_counter() # 時間計測開始
     for epoch in range(start_epoch, end_epoch):
         g.manual_seed(seed+epoch)

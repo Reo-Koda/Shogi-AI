@@ -54,6 +54,7 @@ if __name__ == "__main__":
     start = time.time()
 
     delta_list = []
+    cnt = 0
     for i in range(iter):
         # 検証局面をランダムに選定
         idx = random.randint(0, len(dataset))
@@ -65,10 +66,11 @@ if __name__ == "__main__":
         with torch.no_grad():
             eval_y = model(x).item()
         
-        if i < 10:
+        if abs(stnd_y) > 3000 and cnt < 10:
             print(f"idx : {idx}")
             print(f"推論スコア : {eval_y}")
             print(f"基準スコア : {stnd_y}")
+            cnt += 1
         # スコアの差を保存
         delta_list.append(abs(eval_y - stnd_y))
 

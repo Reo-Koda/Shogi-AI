@@ -45,7 +45,7 @@ class ValueNet_useRes(nn.Module):
         h = self.blocks(h)
         h = self.pool(h).flatten(1)      # (B,C)
         v = self.head(h).squeeze(-1)     # (B,)
-        return torch.tanh(v)
+        return v
 
 class ValueNet_useResMulti(nn.Module):
     def __init__(self, stage_blocks=(6, 6), stage_channels=(128, 256)):
@@ -83,7 +83,7 @@ class ValueNet_useResMulti(nn.Module):
         return v
 
 class ValueNet(nn.Module):
-    def __init__(self):
+    def __init__(self, channels=256):
         super().__init__()
         self.body = nn.Sequential(
             nn.Conv2d(119, 128, 3, padding=1),
@@ -98,7 +98,7 @@ class ValueNet(nn.Module):
         # x: (B,119,9,9)
         h = self.body(x).squeeze(-1).squeeze(-1) # (B,128)
         v = self.head(h).squeeze(-1)             # (B,)
-        return torch.tanh(v)
+        return v
 
 class PolicyNet(nn.Module):
     """
@@ -130,7 +130,7 @@ class PolicyNet(nn.Module):
             legal_mask = legal_mask.to(dtype=torch.bool)
             logits = logits.masked_fill(~legal_mask, -1e9)
 
-        return logits
+        return logits # 合法手だけのスコア群を返す
 
     @staticmethod
     def logits_to_policy(logits: torch.Tensor) -> torch.Tensor:
