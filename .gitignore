@@ -6,4 +6,3 @@ kifu_data
 *.spec
 *.json
 .env
-pram/*.pt
