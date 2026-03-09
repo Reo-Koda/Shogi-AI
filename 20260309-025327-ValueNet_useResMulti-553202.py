@@ -41,7 +41,7 @@ class NNEngine(SearchEngine):
         # 評価値を0.0～1.0の範囲に収める
         if eval_y < border_m:
             return (border_m + 1.0) / 2.0
-        if border_p < eval_y:
+        elif border_p < eval_y:
             return (border_p + 1.0) / 2.0
         else:
             return (eval_y + 1.0) / 2.0

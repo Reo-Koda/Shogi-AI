@@ -43,6 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, default='valueNet', help='使用するモデルクラス名')
     parser.add_argument('--mail', action='store_true', help='学習の終了を通知する')
     parser.add_argument('--alpha', type=float, default=0.0, help='評価値を重視する度合い（0.0なら勝敗のみ、1.0なら評価値のみ）')
+    parser.add_argument('--reset_lr', action='store_true', help='学習率をリセットする')
 
     args = parser.parse_args()
 
@@ -54,6 +55,7 @@ if __name__ == "__main__":
     mail         = args.mail
     alpha        = args.alpha
     device       = args.device
+    reset_lr     = args.reset_lr
     file_num     = args.file_num
     pramPath     = args.pramPath
     savePath     = args.savePath
@@ -117,13 +119,13 @@ if __name__ == "__main__":
         ckpt = torch.load(pramPath, map_location=device) # パラメータの読み込み
         model.load_state_dict(ckpt["model"])             # パラメータを設定
         optimizer.load_state_dict(ckpt["optimizer"])     # 最適化パラメータの設定
-        scheduler.load_state_dict(ckpt["scheduler"])     # 学習率のスケジュールを読み込み
+        scheduler.load_state_dict(ckpt["scheduler"]) if reset_lr else None # 学習率のスケジュールを読み込み
 
         start_epoch = ckpt["epoch"] + 1                  # epoch数の読み込み
 
     # 学習
     end_epoch = start_epoch + iter    # 終了時の epoch 数
-    time_hist = deque(maxlen=10)      # 終了予想時間の計算に使用
+    time_hist = deque(maxlen=3)       # 終了予想時間の計算に使用
     best_loss = float('inf')          # 最高損失率の初期化
     epoch_start = time.perf_counter() # 時間計測開始
     for epoch in range(start_epoch, end_epoch):
