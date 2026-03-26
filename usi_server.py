@@ -18,8 +18,11 @@ class USIEngine:
     def send(self, msg):
         print(msg, flush=True)
     
-    def info(self, depth=0, time=0, nps=0, cp=0, pv=None, hashfull=0, currmove=None):
-        self.send(f"info depth {depth} time {time} nodes {self.nodes} nps {nps} score cp {cp} pv {' '.join(pv)} hashfull {hashfull} currmove {currmove}")
+    def info(self, depth=0, time=0, nps=0, cp=0, pv=None, hashfull=0):
+        self.send(f"info depth {depth} time {time} nodes {self.nodes} nps {nps} score cp {cp} pv {' '.join(cshogi.move_to_usi(mv) for mv in pv)} hashfull {hashfull}")
+
+    def currmove(self, currmove):
+        self.send(f"info currmove {cshogi.move_to_usi(currmove)}")
     
     def loop(self):
         while True:
@@ -37,7 +40,8 @@ class USIEngine:
                 self.send("readyok")
 
             elif line.startswith("position"):
-                self.cmd_position(line)
+                position = line.split("position ")[1]
+                self.board.set_position(position)
 
             elif line.startswith("go"):
                 self.cmd_go()
@@ -46,21 +50,8 @@ class USIEngine:
                 self.stop_flag = True
 
             elif line == "quit":
+                self.stop_flag = True
                 break
-        
-    
-    def cmd_position(self, line):
-        tokens = line.split()
-
-        if "startpos" in tokens:
-            self.board.reset()
-
-        if "moves" in tokens:
-            idx = tokens.index("moves")
-            moves = tokens[idx + 1:]
-
-            for mv in moves:
-                self.board.push_usi(mv)
     
     def cmd_go(self):
         if self.thinking:

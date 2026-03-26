@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.data import DataLoader, Subset, random_split
+from torch.utils.data import DataLoader, random_split
 from torch.utils.data.sampler import SubsetRandomSampler
 import kifu_dataset
 from save_pram import save_pram
@@ -118,10 +118,12 @@ if __name__ == "__main__":
     if isContinue:
         ckpt = torch.load(pramPath, map_location=device) # パラメータの読み込み
         model.load_state_dict(ckpt["model"])             # パラメータを設定
-        optimizer.load_state_dict(ckpt["optimizer"])     # 最適化パラメータの設定
-        scheduler.load_state_dict(ckpt["scheduler"]) if reset_lr else None # 学習率のスケジュールを読み込み
+        if not reset_lr:
+            optimizer.load_state_dict(ckpt["optimizer"]) # 最適化パラメータの設定
+            scheduler.load_state_dict(ckpt["scheduler"]) # 学習率のスケジュールを読み込み
 
         start_epoch = ckpt["epoch"] + 1                  # epoch数の読み込み
+        alpha = ckpt["alpha"]                            # alpha値の読み込み
 
     # 学習
     end_epoch = start_epoch + iter    # 終了時の epoch 数
@@ -182,7 +184,7 @@ if __name__ == "__main__":
         epoch_end = time.perf_counter()
         epoch_time = epoch_end - epoch_start                                      # 経過時間の計算
         epoch_start = epoch_end                                                   # 時間計測開始地点の更新
-        time_hist.append(epoch_time)
+        time_hist.append(epoch_time)                                              # 経過時間の履歴を更新
         scheduler.step(val_loss)                                                  # スケジューラに現在の損失を報告
         current_lr = optimizer.param_groups[0]['lr']                              # 現在の学習率
         passed_epoch = epoch - start_epoch + 1                                    # 今のところの学習回数
@@ -193,8 +195,8 @@ if __name__ == "__main__":
         print(f"epoch {epoch + 1:>5}, train_loss {train_loss:.6f}, val_loss {val_loss:.6f}, lr {current_lr:.2e}, end {expected_end_time.strftime("%Y/%m/%d-%H:%M:%S")}")
 
         if best_loss > val_loss:
-            best_loss = val_loss                                              # 最高損失率を更新
-            save_pram(model, optimizer, scheduler, epoch, val_loss, savePath) # パラメータを保存
+            best_loss = val_loss                                                     # 最高損失率を更新
+            save_pram(model, optimizer, scheduler, epoch, alpha, val_loss, savePath) # パラメータを保存
         
         if minlr > current_lr: break # 学習率が下限を超えたら打ち止め
 

@@ -106,16 +106,19 @@ class PolicyNet(nn.Module):
     出力:  policy_logits (B,K,9,9)  ※Kはmove-planes数（固定）
           （必要なら合法手マスク後に softmax して確率にする）
     """
-    def __init__(self, policy_planes: int = 137):
+    def __init__(self, in_channels: int = 119, middle_channels: int = 128, policy_planes: int = 137):
         super().__init__()
         self.body = nn.Sequential(
-            nn.Conv2d(119, 128, 3, padding=1),
+            nn.Conv2d(in_channels, middle_channels, 3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(128, 128, 3, padding=1),
+            nn.Conv2d(middle_channels, middle_channels, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(middle_channels, middle_channels, 3, padding=1),
             nn.ReLU(),
         )
         # policy head: (B,128,9,9) -> (B,K,9,9)
-        self.policy_head = nn.Conv2d(128, policy_planes, kernel_size=1, bias=True)
+        self.policy_head = nn.Conv2d(middle_channels, policy_planes, kernel_size=1, bias=True)
+        self.inf = 1e9
 
     def forward(self, x, legal_mask: torch.Tensor | None = None):
         """
@@ -128,7 +131,7 @@ class PolicyNet(nn.Module):
         if legal_mask is not None:
             # boolでない場合も受ける
             legal_mask = legal_mask.to(dtype=torch.bool)
-            logits = logits.masked_fill(~legal_mask, -1e9)
+            logits = logits.masked_fill(~legal_mask, -self.inf) # 非合法手を大負値でマスク
 
         return logits # 合法手だけのスコア群を返す
 
